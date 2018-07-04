@@ -30,6 +30,10 @@
 #include <dmalloc.h>
 #endif
 
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+
 #include "suck_config.h"
 #include "suck.h"
 #include "both.h"
@@ -121,10 +125,12 @@ int do_rnewsbatch(PMaster master) {
 					retval = RETVAL_ERROR;
 				}
 				else {
+					int fd;
 					if( cursize == 0 ) {
 						if(fptr != NULL) {
 							/* close old file */
 							fclose(fptr);
+							fptr = NULL;
 							batchnr++;
 						}
 						/* have to open file */
@@ -137,13 +143,14 @@ int do_rnewsbatch(PMaster master) {
 						if(master->debug == TRUE) {
 							do_debug("BATCH FILE: %s\n", buf);
 						}
-						if(stat(buf, &tbuf) == 0) {
-							/* whoops file already exists */
+						fd = open(buf, O_WRONLY | O_CREAT | O_EXCL, 0666);
+						if(fd < 0) {
 							MyPerror(buf);
 							retval = RETVAL_ERROR;
 						}
-						else if((fptr = fopen(buf, "w")) == NULL) {
+						else if((fptr = fdopen(fd, "w")) == NULL) {
 							MyPerror(buf);
+							close(fd);
 							retval = RETVAL_ERROR;
 						}
 					}
